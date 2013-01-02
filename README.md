@@ -1,7 +1,7 @@
 mula
 ==========
 
-Because the Internet should be open. And because Sesame Street™.
+Because the mula market should be open.
 
 
 Installation

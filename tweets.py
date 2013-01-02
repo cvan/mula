@@ -2,16 +2,42 @@
 
 import collections
 import datetime
-import itertools
 import re
 
 import redis
-from nltk.corpus import wordnet
 
 from common import redis
 
 
 strip_whitespace = lambda x: re.sub('\s+', ' ', x).strip()
+
+class Thesaurus(object):
+    # Moby's Thesaurus
+    filename = 'mthesaur.UTF-8.txt'
+
+    @property
+    def words(self):
+        if hasattr(self, 'mthesaur_words'):
+            return self.mthesaur_words
+
+        lines = open(self.filename).readlines()
+        self.mthesaur_words = '\n'.join(lines)
+
+        return self.mthesaur_words
+
+thesaurus = Thesaurus()
+
+
+def get_synonyms(word):
+    lines = thesaurus.words
+    start = lines.find('\n%s,' % word)
+    lines = lines[start:].strip()
+
+    end = lines.find('\n')
+    synonyms = lines[:end]
+
+    return synonyms.strip().split(',')
+
 
 sentiments = '''
 feel {mood}
@@ -54,10 +80,7 @@ for mood in moods:
         # This is already in redis DB, so we're good.
         mood_synonyms[mood] = cached
     else:
-        all_synonyms = [x.lemma_names for x in wordnet.synsets(mood)]
-
-        # Flatten the lists of lists, and return the unique words.
-        synonyms = set(itertools.chain.from_iterable(all_synonyms))
+        synonyms = get_synonyms(mood)
 
         # Store it in redis DB, so we don't have to a lookup next time.
         for synonym in synonyms:
@@ -80,6 +103,7 @@ def get_tweets():
     tweets = [
         'i am so hostile',
         'im blue about this',
+        'i am glad'
     ]
     return tweets
 
@@ -89,7 +113,7 @@ def get_counts(tweets):
     counts = collections.Counter()
 
     for tweet in tweets:
-        tweet = strip_whitespace(tweet)
+        tweet = strip_whitespace(tweet.lower())
 
         # Keep track of the mood counts per tweet.
         mood_counts = get_mood_counts(tweet)
@@ -104,8 +128,10 @@ def get_counts(tweets):
 def get_mood_counts(tweet):
     tweet_counts = {}
 
-    # Go through all the sentiments.
+    # Go through all the sentiment phrases (e.g., "I feel so {mood}").
     for sentiment in sentiments:
+
+        # Go through all the moods (e.g., "depressed").
         for mood in moods:
             # Get all the synonyms for this mood word.
             words = mood_synonyms.get(mood, set(mood))
@@ -115,6 +141,7 @@ def get_mood_counts(tweet):
                 if mood in tweet_counts:
                     continue
 
+                # See if we find this phrase in the tweet.
                 phrase_to_look_for = sentiment.format(mood=word)
                 if phrase_to_look_for in tweet:
                     tweet_counts[mood] = 1
