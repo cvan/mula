@@ -32,8 +32,6 @@ To clear redis:
 Development
 ===========
 
-Set up word corpus:
+Run this script:
 
-    python
-    import nltk
-    nltk.download()
+    DEBUG=1 python tweets.py
