@@ -2,10 +2,14 @@
 
 import collections
 import datetime
+import json
 import re
+import time
 
 import redis
+import requests
 
+import settings
 from common import redis
 
 
@@ -72,6 +76,7 @@ agreeable
 energetic
 '''.strip().split('\n')
 
+
 mood_synonyms = {}
 for mood in moods:
     # Notice that the original mood word is returned by `synsets`.
@@ -94,17 +99,42 @@ def run():
     timestamp = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
     print timestamp
 
-    tweets = get_tweets()
+    tweets = get_tweets(search_terms)
     print get_counts(tweets)
 
 
-def get_tweets():
+def get_tweets(terms):
     # Sample tweets.
-    tweets = [
-        'i am so hostile',
-        'im blue about this',
-        'i am glad'
-    ]
+    #tweets = [
+    #    'i am so hostile',
+    #    'im blue about this',
+    #    'i am glad'
+    #]
+    #return tweets
+
+    tweets = []
+    page = 1
+    url = 'http://search.twitter.com/search.json?q=%s&rpp=100&page=%s'
+
+    for term in terms:
+        proceed = True
+        # Keep iterating until there are no more pages.
+        while proceed:
+            res = requests.get(url % (term, page))
+            if settings.DEBUG:
+                print '-' * 69
+                print url % (term, page)
+            try:
+                data = json.loads(res.content)['results']
+                tweets += [x['text'] for x in data]
+            except KeyError:
+                # No more pages.
+                proceed = False
+            page += 1
+            # Let Twitter catch its breath.
+            if page % 5 == 0:
+                time.sleep(1)
+
     return tweets
 
 
@@ -119,8 +149,11 @@ def get_counts(tweets):
         mood_counts = get_mood_counts(tweet)
 
         if mood_counts:
-            mood_counts['total'] = 1
-            counts.update(mood_counts)
+            mood_counts['total_analyzed'] = 1
+        else:
+            mood_counts['total_rejected'] = 1
+        mood_counts['total'] = 1
+        counts.update(mood_counts)
 
     return dict(counts)
 
@@ -138,7 +171,7 @@ def get_mood_counts(tweet):
 
             for word in words:
                 # Don't record the same mood twice.
-                if mood in tweet_counts:
+                if not word or mood in tweet_counts:
                     continue
 
                 # See if we find this phrase in the tweet.
