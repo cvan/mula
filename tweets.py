@@ -113,23 +113,25 @@ def get_tweets(terms):
     #return tweets
 
     tweets = []
-    page = 1
     url = 'http://search.twitter.com/search.json?q=%s&rpp=100&page=%s'
 
     for term in terms:
         proceed = True
         # Keep iterating until there are no more pages.
+        page = 1
         while proceed:
             res = requests.get(url % (term, page))
-            if settings.DEBUG:
-                print '-' * 69
-                print url % (term, page)
+            data = json.loads(res.content)
             try:
-                data = json.loads(res.content)['results']
-                tweets += [x['text'] for x in data]
+                results = data['results']
+                tweets += [x['text'] for x in results]
             except KeyError:
                 # No more pages.
                 proceed = False
+            if settings.DEBUG:
+                print '-' * 69
+                print url % (term, page)
+                print len(data)
             page += 1
             # Let Twitter catch its breath.
             if page % 5 == 0:
