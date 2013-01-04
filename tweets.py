@@ -112,32 +112,38 @@ def get_tweets(terms):
     #]
     #return tweets
 
-    tweets = []
-    url = 'http://search.twitter.com/search.json?q=%s&rpp=100&page=%s'
+    tweets = {}
+    base_url = 'http://search.twitter.com/search.json?q=%s&rpp=99&page=%s&result_type=recent'
 
     for term in terms:
+        if settings.DEBUG:
+            print term
         proceed = True
         # Keep iterating until there are no more pages.
         page = 1
         while proceed:
-            res = requests.get(url % (term, page))
+            url = base_url % (term.replace(' ', '+'), page)
+            res = requests.get(url, timeout=3)
             data = json.loads(res.content)
             try:
                 results = data['results']
-                tweets += [x['text'] for x in results]
+                for tweet in results:
+                    if tweet['id'] not in tweets:
+                        tweets[tweet['id']] = tweet['text']
             except KeyError:
                 # No more pages.
                 proceed = False
             if settings.DEBUG:
-                print '-' * 69
-                print url % (term, page)
-                print len(data)
+                print '\t', '-' * 69
+                print '\t', url
+                print '\t', len(results)
             page += 1
             # Let Twitter catch its breath.
             if page % 5 == 0:
                 time.sleep(1)
+        time.sleep(1)
 
-    return tweets
+    return tweets.values()
 
 
 def get_counts(tweets):
