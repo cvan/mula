@@ -76,6 +76,117 @@ agreeable
 energetic
 '''.strip().split('\n')
 
+mood_roots = {
+    'elated': '''
+        happy
+        satisfied
+        pleased
+        cheerful
+        overjoyed
+        '''.strip().split('\n'),
+    'depressed': '''
+        unhappy
+        sad
+        blue
+        hopeless
+        discouraged
+        lonely
+        miserable
+        gloomy
+        refreshed
+        '''.strip().split('\n'),
+    'agreeable': '''
+        friendly
+        agreeable
+        helpful
+        forgiving
+        kindly
+        good-natured
+        warm-hearted
+        good-tempered
+        '''.strip().split('\n'),
+    'hostile': '''
+        angry
+        peeved
+        grouchy
+        spiteful
+        annoyed
+        resentful
+        bitter
+        ready to fight
+        rebellious
+        furious
+        bad-tempered
+        '''.strip().split('\n'),
+    'energetic': '''
+        lively
+        full of pep
+        vigorous
+        energetic
+        '''.strip().split('\n'),
+    'tired': '''
+        worn out
+        listless
+        fatigued
+        exhausted
+        sluggish
+        weary
+        bushed
+        '''.strip().split('\n'),
+    'confused': '''
+        confused
+        unable to concentrate
+        muddled
+        bewildered
+        forgetful
+        uncertain about things
+        '''.strip().split('\n'),
+    'clearheaded': '''
+        efficient
+        alert
+        '''.strip().split('\n'),
+    'composed': '''
+        relaxed
+        '''.strip().split('\n'),
+    'anxious': '''
+        uneasy
+        restless
+        nervous
+        anxious
+        terrified
+        tense
+        shaky
+        on edge
+        panicky
+        '''.strip().split('\n'),
+    'confident': '''
+        strong
+        bold
+        powerful
+        secure
+        confident
+        self-assured
+        forceful
+        '''.strip().split('\n'),
+    'unsure': '''
+        weak
+        timid
+        unsure
+        self-doubting
+        uncertain
+        feeble
+        unassertive
+        '''.strip().split('\n'),
+    'guilty': '''
+        sorry for things done
+        unworthy
+        desperate
+        helpless
+        worthless
+        guilty
+        '''.strip().split('\n'),
+}
+
 
 mood_synonyms = {}
 for mood in moods:
@@ -86,6 +197,14 @@ for mood in moods:
         mood_synonyms[mood] = cached
     else:
         synonyms = get_synonyms(mood)
+        if mood in mood_roots:
+            for root in mood_roots[mood]:
+                synonyms += get_synonyms(root)
+
+        # Make this a sorted alphabetical list of unique synonyms.
+        synonyms = sorted(list(set(synonyms)))
+        # Remove any blank values.
+        synonyms = filter(None, synonyms)
 
         # Store it in redis DB, so we don't have to a lookup next time.
         for synonym in synonyms:
@@ -94,23 +213,33 @@ for mood in moods:
         mood_synonyms[mood] = synonyms
 
 
+# Uncomment to print mood synonyms.
+# import pprint
+# pprint.pprint(mood_synonyms)
+# import sys
+# sys.exit(1)
+
+
 def run():
     # When the run started.
     timestamp = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
     print timestamp
 
     tweets = get_tweets(search_terms)
-    print get_counts(tweets)
+    result = get_counts(tweets)
+
+    print result
 
 
 def get_tweets(terms):
     # Sample tweets.
-    #tweets = [
+    # tweets = [
     #    'i am so hostile',
     #    'im blue about this',
-    #    'i am glad'
-    #]
-    #return tweets
+    #    'i am glad',
+    #    'poopy mc poop face'
+    # ]
+    # return tweets
 
     tweets = {}
     base_url = 'http://search.twitter.com/search.json?q=%s&rpp=99&page=%s&result_type=recent'

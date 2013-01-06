@@ -7,6 +7,15 @@ Because the mula market should be open.
 Installation
 ============
 
+Download virtualenv:
+
+    pip install virtualenv
+
+Create a virtual environment:
+
+    mkvirtualenv --distribute --no-site-packages mula
+    workon mula
+
 Acquire dependencies:
 
     pip install -r requirements.txt
