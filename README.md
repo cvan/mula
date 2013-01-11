@@ -7,13 +7,17 @@ Because the mula market should be open.
 Installation
 ============
 
-Download virtualenv:
+Requirements:
 
-    pip install virtualenv
+    * Python 2.7 (`brew install python` using [homebrew](http://mxcl.github.com/homebrew/) for Mac OS X)
+
+Download `virtualenv` and `virtualenvwrapper`:
+
+    curl -s https://raw.github.com/brainsik/virtualenv-burrito/master/virtualenv-burrito.sh | $SHELL
 
 Create a virtual environment:
 
-    mkvirtualenv --distribute --no-site-packages mula
+    mkvirtualenv --no-site-packages --python=$(which python2.7) mula
     workon mula
 
 Acquire dependencies:
