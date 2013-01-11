@@ -253,7 +253,15 @@ def get_tweets(terms):
         while proceed:
             url = base_url % (term.replace(' ', '+'), page)
             res = requests.get(url, timeout=3)
-            data = json.loads(res.content)
+
+            try:
+                data = json.loads(res.content)
+            except ValueError:
+                proceed = False
+            else:
+                if 'next_page' not in data:
+                    proceed = False
+
             try:
                 results = data['results']
                 for tweet in results:
@@ -262,14 +270,18 @@ def get_tweets(terms):
             except KeyError:
                 # No more pages.
                 proceed = False
+
             if settings.DEBUG:
                 print '\t', '-' * 69
                 print '\t', url
                 print '\t', len(results)
+
             page += 1
+
             # Let Twitter catch its breath.
             if page % 5 == 0:
                 time.sleep(1)
+
         time.sleep(1)
 
     return tweets.values()

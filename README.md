@@ -14,6 +14,7 @@ Requirements:
 Download `virtualenv` and `virtualenvwrapper`:
 
     curl -s https://raw.github.com/brainsik/virtualenv-burrito/master/virtualenv-burrito.sh | $SHELL
+    source ~/.bashrc
 
 Create a virtual environment:
 
