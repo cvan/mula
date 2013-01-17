@@ -6,14 +6,20 @@ import json
 import re
 import time
 
-import redis
 import requests
-
-import settings
 from common import redis
+
+try:
+    if os.environ.get('DEBUG'):
+        import settings_local as settings
+    else:
+        import settings_prod as settings
+except ImportError:
+    import settings
 
 
 strip_whitespace = lambda x: re.sub('\s+', ' ', x).strip()
+
 
 class Thesaurus(object):
     # Moby's Thesaurus
@@ -225,25 +231,33 @@ for mood in moods:
 def run():
     # When the run started.
     timestamp = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    redis_timestamp = datetime.datetime.today().strftime('%Y%m%d%H%M%S')
     print timestamp
 
-    tweets = get_tweets(search_terms)
-    result = get_counts(tweets)
+    # Sorted Set.
+    # key: runs
+    # score: redis_timestamp
+    # value: timestamp
+    redis.zadd('runs', timestamp, redis_timestamp)
 
-    print result
+    if settings.MOCK:
+        counts = {'composed': 1, 'elated': 8, 'energetic': 2, 'tired': 1, 'depressed': 6, 'anxious': 4, 'confident': 1, 'agreeable': 5}
+    else:
+        counts = process_tweets(search_terms)
+    print counts
+
+    for mood in moods:
+        # Set.
+        # key: runs:<redis_timestamp>:<mood>
+        # value: <count>
+        redis.sadd('runs:%s:%s' % (redis_timestamp, mood), counts.get(mood, 0))
 
 
-def get_tweets(terms):
-    # Sample tweets.
-    # tweets = [
-    #    'i am so hostile',
-    #    'im blue about this',
-    #    'i am glad',
-    #    'poopy mc poop face'
-    # ]
-    # return tweets
+def process_tweets(terms):
+    # All totals default to 0.
+    counts = collections.Counter()
 
-    tweets = {}
+    tweets_seen = []
     base_url = 'http://search.twitter.com/search.json?q=%s&rpp=99&page=%s&result_type=recent'
 
     for term in terms:
@@ -254,10 +268,15 @@ def get_tweets(terms):
         page = 1
         while proceed:
             url = base_url % (term.replace(' ', '+'), page)
-            res = requests.get(url, timeout=3)
+            if not settings.MOCK:
+                res = requests.get(url, timeout=3)
 
             try:
-                data = json.loads(res.content)
+                if settings.MOCK:
+                    data = {'results': [{'id': 1, 'text': 'feel happy'}], 'next_page': '1'}
+                    proceed = False
+                else:
+                    data = json.loads(res.content)
             except ValueError:
                 proceed = False
             else:
@@ -266,12 +285,26 @@ def get_tweets(terms):
 
             try:
                 results = data['results']
-                for tweet in results:
-                    if tweet['id'] not in tweets:
-                        tweets[tweet['id']] = tweet['text']
             except KeyError:
                 # No more pages.
                 proceed = False
+            else:
+                for tweet in results:
+                    if tweet['id'] not in tweets_seen:
+                        tweets_seen.append(tweet['id'])
+                        tweet = strip_whitespace(tweet['text'].lower())
+
+                        # Keep track of the mood counts per tweet.
+                        mood_counts = get_mood_counts(tweet)
+
+                        if mood_counts:
+                            mood_counts['total_analyzed'] = 1
+                        else:
+                            mood_counts['total_rejected'] = 1
+                        mood_counts['total'] = 1
+                        counts.update(mood_counts['exact'])
+                        if settings.DEBUG:
+                            print dict(counts)
 
             if settings.DEBUG:
                 print '\t', '-' * 69
@@ -286,27 +319,7 @@ def get_tweets(terms):
 
         time.sleep(1)
 
-    return tweets.values()
-
-
-def get_counts(tweets):
-    # All totals default to 0.
-    counts = collections.Counter()
-
-    for tweet in tweets:
-        tweet = strip_whitespace(tweet.lower())
-
-        # Keep track of the mood counts per tweet.
-        mood_counts = get_mood_counts(tweet)
-
-        if mood_counts:
-            mood_counts['total_analyzed'] = 1
-        else:
-            mood_counts['total_rejected'] = 1
-        mood_counts['total'] = 1
-        counts.update(mood_counts['exact'])
-
-    return dict(counts)
+    return counts
 
 
 def get_mood_counts(tweet):
@@ -318,7 +331,8 @@ def get_mood_counts(tweet):
         # Go through all the moods (e.g., "depressed").
         for mood in moods:
             # Get all the synonyms for this mood word.
-            words = filter(None, mood_synonyms.get(mood, set(mood)))
+            words = mood_synonyms.get(mood, set(mood))
+            words = filter(None, words)
 
             for word in words:
                 # See if we find this phrase in the tweet.

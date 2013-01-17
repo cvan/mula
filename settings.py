@@ -6,6 +6,7 @@ import os
 
 
 DEBUG = os.environ.get('DEBUG', False)
+MOCK = os.environ.get('MOCK', False)
 
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
