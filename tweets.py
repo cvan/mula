@@ -58,6 +58,8 @@ i'm so {mood}
 i am so {mood}
 '''.strip().split('\n')
 
+sentiments = ['feel {mood}']
+
 search_terms = [strip_whitespace(x.format(mood='')) for x in sentiments]
 
 moods = '''
@@ -302,13 +304,13 @@ def get_counts(tweets):
         else:
             mood_counts['total_rejected'] = 1
         mood_counts['total'] = 1
-        counts.update(mood_counts)
+        counts.update(mood_counts['exact'])
 
     return dict(counts)
 
 
 def get_mood_counts(tweet):
-    tweet_counts = {}
+    tweet_counts = {'exact': {}, 'fuzzy': {}}
 
     # Go through all the sentiment phrases (e.g., "I feel so {mood}").
     for sentiment in sentiments:
@@ -316,17 +318,17 @@ def get_mood_counts(tweet):
         # Go through all the moods (e.g., "depressed").
         for mood in moods:
             # Get all the synonyms for this mood word.
-            words = mood_synonyms.get(mood, set(mood))
+            words = filter(None, mood_synonyms.get(mood, set(mood)))
 
             for word in words:
-                # Don't record the same mood twice.
-                if not word or mood in tweet_counts:
-                    continue
-
                 # See if we find this phrase in the tweet.
                 phrase_to_look_for = sentiment.format(mood=word)
                 if phrase_to_look_for in tweet:
-                    tweet_counts[mood] = 1
+                    tweet_counts['exact'][mood] = 1
+
+                # See if the word appears anywhere in the tweet.
+                if word in tweet:
+                    tweet_counts['fuzzy'][mood] = 1
 
     return tweet_counts
 
