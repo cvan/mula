@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>mula</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="robots" content="none">
+        <!--<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700">-->
+        <link rel="stylesheet" type="text/css" media="all" href="{{ url_for('static', filename='css/style.css') }}">
+    </head>
+    <body>
+        <header>
+            <h1>mula</h1>
+        </header>
+        <section class="report">
+            <h2>{{ precision }}</h2>
+            {% if runs %}
+                <table>
+                    <thead>
+                        <th>timestamp</th>
+                        {% for mood in moods %}
+                            <th>{{ mood }}</th>
+                        {% endfor %}
+                    </thead>
+                    <tbody>
+                        {% for run in runs %}
+                            <tr>
+                                <td class="timestamp">{{ run.timestamp }}</td>
+                                {% for count in run.counts %}
+                                    <td>{{ count }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No data yet. Fire off a run!</p>
+            {% endif %}
+        </section>
+    </body>
+</html>

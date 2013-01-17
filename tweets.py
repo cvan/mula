@@ -3,6 +3,7 @@
 import collections
 import datetime
 import json
+import os
 import re
 import time
 
@@ -197,28 +198,6 @@ mood_roots = {
 
 
 mood_synonyms = {}
-for mood in moods:
-    # Notice that the original mood word is returned by `synsets`.
-    cached = redis.smembers('synonyms:%s' % mood)
-    if cached:
-        # This is already in redis DB, so we're good.
-        mood_synonyms[mood] = cached
-    else:
-        synonyms = get_synonyms(mood)
-        if mood in mood_roots:
-            for root in mood_roots[mood]:
-                synonyms += get_synonyms(root)
-
-        # Make this a sorted alphabetical list of unique synonyms.
-        synonyms = sorted(list(set(synonyms)))
-        # Remove any blank values.
-        synonyms = filter(None, synonyms)
-
-        # Store it in redis DB, so we don't have to a lookup next time.
-        for synonym in synonyms:
-            redis.sadd('synonyms:%s' % mood, synonym)
-
-        mood_synonyms[mood] = synonyms
 
 
 # Uncomment to print mood synonyms.
@@ -241,21 +220,28 @@ def run():
     redis.zadd('runs', timestamp, redis_timestamp)
 
     if settings.MOCK:
-        counts = {'composed': 1, 'elated': 8, 'energetic': 2, 'tired': 1, 'depressed': 6, 'anxious': 4, 'confident': 1, 'agreeable': 5}
+        counts = {}
+        counts['exact'] = {'composed': 1, 'elated': 8, 'energetic': 2, 'tired': 1, 'depressed': 6, 'anxious': 4, 'confident': 1, 'agreeable': 5}
+        counts['fuzzy'] = {'composed': 10, 'elated': 80, 'energetic': 20, 'tired': 10, 'depressed': 60, 'anxious': 40, 'confident': 10, 'agreeable': 50}
+        #
+        # TODO: Add total analyzed, etc.
+        #
     else:
         counts = process_tweets(search_terms)
     print counts
 
     for mood in moods:
-        # Set.
-        # key: runs:<redis_timestamp>:<mood>
-        # value: <count>
-        redis.sadd('runs:%s:%s' % (redis_timestamp, mood), counts.get(mood, 0))
+        for precision, sub_counts in counts.iteritems():
+            # Set.
+            # key: runs:<redis_timestamp>:<precision [exact or fuzzy]>:<mood>
+            # value: <count>
+            redis.set('runs:%s:moods:%s:%s' % (redis_timestamp, precision, mood),
+                      sub_counts.get(mood, 0))
 
 
 def process_tweets(terms):
     # All totals default to 0.
-    counts = collections.Counter()
+    counts = {'exact': collections.Counter(), 'fuzzy': collections.Counter()}
 
     tweets_seen = []
     base_url = 'http://search.twitter.com/search.json?q=%s&rpp=99&page=%s&result_type=recent'
@@ -302,9 +288,11 @@ def process_tweets(terms):
                         else:
                             mood_counts['total_rejected'] = 1
                         mood_counts['total'] = 1
-                        counts.update(mood_counts['exact'])
+                        counts['exact'].update(mood_counts['exact'])
+                        counts['fuzzy'].update(mood_counts['exact'])
                         if settings.DEBUG:
-                            print dict(counts)
+                            print 'exact:', dict(counts['exact'])
+                            print 'fuzzy:', dict(counts['fuzzy'])
 
             if settings.DEBUG:
                 print '\t', '-' * 69
@@ -347,5 +335,31 @@ def get_mood_counts(tweet):
     return tweet_counts
 
 
+def build_synonyms():
+    for mood in moods:
+        # Notice that the original mood word is returned by `synsets`.
+        cached = redis.smembers('synonyms:%s' % mood)
+        if cached:
+            # This is already in redis DB, so we're good.
+            mood_synonyms[mood] = cached
+        else:
+            synonyms = get_synonyms(mood)
+            if mood in mood_roots:
+                for root in mood_roots[mood]:
+                    synonyms += get_synonyms(root)
+
+            # Make this a sorted alphabetical list of unique synonyms.
+            synonyms = sorted(list(set(synonyms)))
+            # Remove any blank values.
+            synonyms = filter(None, synonyms)
+
+            # Store it in redis DB, so we don't have to a lookup next time.
+            for synonym in synonyms:
+                redis.sadd('synonyms:%s' % mood, synonym)
+
+            mood_synonyms[mood] = synonyms
+
+
 if __name__ == '__main__':
+    build_synonyms()
     run()
