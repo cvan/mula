@@ -65,8 +65,6 @@ i'm so {mood}
 i am so {mood}
 '''.strip().split('\n')
 
-sentiments = ['feel {mood}']
-
 search_terms = [strip_whitespace(x.format(mood='')) for x in sentiments]
 
 moods = '''
