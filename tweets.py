@@ -360,4 +360,6 @@ def build_synonyms():
 
 if __name__ == '__main__':
     build_synonyms()
-    run()
+    while True:
+        run()
+        time.sleep(60 * 30)  # 30 minutes
