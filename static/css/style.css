@@ -53,7 +53,7 @@ a:hover {
 
 body {
     margin: 0 auto;
-    max-width: 1000px;
+    max-width: 1200px;
     padding: 30px;
 }
 
@@ -102,6 +102,7 @@ th {
     border: 1px solid #bde;
     font-weight: bold;
     text-align: left;
+    white-space: nowrap;
 }
 
 td {
@@ -116,4 +117,16 @@ td:first-child {
 
 tr:last-child td {
     border-bottom-color: #bde;
+}
+
+th.timestamp,
+th.total {
+    background-color: #9df;
+    border-color: #9ce;
+}
+
+td.timestamp,
+td.total {
+    background-color: #adf;
+    border-color: #eff;
 }

@@ -6,7 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="robots" content="none">
-        <!--<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700">-->
+        <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700">
         <link rel="stylesheet" type="text/css" media="all" href="{{ url_for('static', filename='css/style.css') }}">
     </head>
     <body>
@@ -18,18 +18,24 @@
             {% if runs %}
                 <table>
                     <thead>
-                        <th>timestamp</th>
+                        <th class="timestamp">timestamp</th>
                         {% for mood in moods %}
                             <th>{{ mood }}</th>
                         {% endfor %}
+                        {% for total in totals %}
+                            <th class="total">{{ total|replace('_', ' ') }}</th>
+                        {% endfor %}
+                        <th class="total">analyzed %</th>
                     </thead>
                     <tbody>
                         {% for run in runs %}
                             <tr>
                                 <td class="timestamp">{{ run.timestamp }}</td>
                                 {% for count in run.counts %}
-                                    <td>{{ count }}</td>
+                                    <td{% if loop.index > run.counts|length - 3 %} class="total"{% endif %}>{{ count }}</td>
                                 {% endfor %}
+                                {# TODO: Return run.counts as a dictionary instead. #}
+                                <td class="total">{{ (run.counts[-2] / (run.counts[-3] or 1) * 100)|round(4) }}%</td>
                             </tr>
                         {% endfor %}
                     </tbody>

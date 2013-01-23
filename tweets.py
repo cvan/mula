@@ -67,6 +67,8 @@ i am so {mood}
 
 search_terms = [strip_whitespace(x.format(mood='')) for x in sentiments]
 
+totals = ('total_saw', 'total_analyzed', 'total_rejected')
+
 moods = '''
 composed
 elated
@@ -236,6 +238,14 @@ def run():
             redis.set('runs:%s:moods:%s:%s' % (redis_timestamp, precision, mood),
                       sub_counts.get(mood, 0))
 
+    for total in totals:
+        for precision, sub_counts in counts.iteritems():
+            # Set.
+            # key: runs:<redis_timestamp>:<precision [exact or fuzzy]>:<total>
+            # value: <count>
+            redis.set('runs:%s:totals:%s:%s' % (redis_timestamp, precision, total),
+                      sub_counts.get(total, 0))
+
 
 def process_tweets(terms):
     # All totals default to 0.
@@ -281,11 +291,6 @@ def process_tweets(terms):
                         # Keep track of the mood counts per tweet.
                         mood_counts = get_mood_counts(tweet)
 
-                        if mood_counts:
-                            mood_counts['total_analyzed'] = 1
-                        else:
-                            mood_counts['total_rejected'] = 1
-                        mood_counts['total'] = 1
                         counts['exact'].update(mood_counts['exact'])
                         counts['fuzzy'].update(mood_counts['exact'])
                         if settings.DEBUG:
@@ -329,6 +334,18 @@ def get_mood_counts(tweet):
                 # See if the word appears anywhere in the tweet.
                 if word in tweet:
                     tweet_counts['fuzzy'][mood] = 1
+
+    if tweet_counts['exact']:
+        tweet_counts['exact']['total_analyzed'] = 1
+    else:
+        tweet_counts['exact']['total_rejected'] = 1
+    tweet_counts['exact']['total_saw'] = 1
+
+    if tweet_counts['fuzzy']:
+        tweet_counts['fuzzy']['total_analyzed'] = 1
+    else:
+        tweet_counts['fuzzy']['total_rejected'] = 1
+    tweet_counts['fuzzy']['total_saw'] = 1
 
     return tweet_counts
 

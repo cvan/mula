@@ -6,7 +6,7 @@ from flask import Flask, Response, render_template
 
 import settings
 from common import redis
-from tweets import moods
+from tweets import moods, totals
 
 try:
     if os.environ.get('DEBUG'):
@@ -57,9 +57,25 @@ def _generate_html(precision):
             count = count or 0
             run['counts'].append(int(count))
 
+        for total in totals:
+            try:
+                # Get the string of the tally count.
+                count = redis.get('runs:%s:totals:%s:%s'
+                                  % (run_key, precision, total))
+            except:
+                # Maybe this key is not a set - or some other error occurred.
+                pass
+            count = count or 0
+            run['counts'].append(int(count))
+
         runs.append(run)
 
-    return {'precision': precision, 'moods': moods, 'runs': runs}
+    return {
+        'precision': precision,
+        'moods': moods,
+        'totals': totals,
+        'runs': runs
+    }
 
 
 def _generate_csv(precision):
